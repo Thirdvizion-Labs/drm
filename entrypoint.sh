@@ -25,4 +25,4 @@ with app.app_context():
 
 python seed_data.py
 
-exec gunicorn -w 4 -b 0.0.0.0:5000 --access-logfile - --error-logfile - app:app
+exec gunicorn -w 4 -b 0.0.0.0:7200 --access-logfile - --error-logfile - app:app

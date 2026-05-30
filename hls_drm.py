@@ -4,7 +4,7 @@ import secrets
 import threading
 
 class HLSDrmManager:
-    def __init__(self, output_dir='static/hls', domain_url='http://localhost:5000'):
+    def __init__(self, output_dir='static/hls', domain_url='http://localhost:7200'):
         self.output_dir = output_dir
         self.domain_url = domain_url
         os.makedirs(output_dir, exist_ok=True)

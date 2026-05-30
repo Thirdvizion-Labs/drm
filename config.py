@@ -19,4 +19,4 @@ class Config:
     HLS_OUTPUT_FOLDER = os.path.join(BASE_DIR, 'static', 'hls')
     VIDEOS_FOLDER = os.path.join(BASE_DIR, 'videos')
     
-    DOMAIN_URL = os.environ.get('DOMAIN_URL') or 'http://localhost:5000'
+    DOMAIN_URL = os.environ.get('DOMAIN_URL') or 'http://localhost:7200'
