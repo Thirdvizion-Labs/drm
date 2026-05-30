@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - MindWell LMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="admin-header">
+        <h1>Admin Dashboard</h1>
+        <p>Manage courses, users, and content</p>
+    </div>
+
+    <div class="admin-tabs">
+        <button class="tab-btn active" onclick="showTab('stats')">Statistics</button>
+        <button class="tab-btn" onclick="showTab('users')">Users</button>
+        <button class="tab-btn" onclick="showTab('courses')">Courses</button>
+        <button class="tab-btn" onclick="showTab('drm')">DRM</button>
+    </div>
+
+    <div class="admin-content">
+        <div id="tab-stats" class="tab-content active">
+            <h2>Platform Statistics</h2>
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <span class="stat-value" id="total-users">0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Courses</h3>
+                    <span class="stat-value" id="total-courses">0</span>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Enrollments</h3>
+                    <span class="stat-value" id="total-enrollments">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-users" class="tab-content">
+            <h2>Users</h2>
+            <div id="users-list" class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Created</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                        <tr><td colspan="5" class="loading">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-courses" class="tab-content">
+            <h2>Courses</h2>
+            <button class="btn btn-primary" onclick="showCreateCourseForm()">Create New Course</button>
+            
+            <div id="courses-list" class="courses-admin-list">
+                <div class="loading">Loading courses...</div>
+            </div>
+            
+            <div id="create-course-form" class="modal-form" style="display: none;">
+                <h3>Create New Course</h3>
+                <form onsubmit="createCourse(event)">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" id="course-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="course-description" rows="4"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                        <button type="button" class="btn btn-outline" onclick="hideCreateCourseForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="tab-drm" class="tab-content">
+            <h2>DRM Management</h2>
+            <div class="drm-info">
+                <div class="info-card">
+                    <h3>🔒 Server-Side DRM Active</h3>
+                    <p>All video content is encrypted using Fernet symmetric encryption (AES-128 equivalent).</p>
+                    <ul>
+                        <li>Videos are encrypted at rest</li>
+                        <li>Decryption keys distributed only to enrolled users</li>
+                        <li>Video tokens expire after 1 hour</li>
+                        <li>User ID watermarked in stream headers</li>
+                    </ul>
+                </div>
+                
+                <div class="drm-actions">
+                    <h3>DRM Actions</h3>
+                    <button class="btn btn-outline" onclick="encryptSampleVideos()">
+                        Encrypt Sample Videos
+                    </button>
+                    <p class="help-text">Use this to encrypt sample videos for testing the DRM system.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    event.target.classList.add('active');
+    
+    if (tabId === 'stats') loadStats();
+    if (tabId === 'users') loadUsers();
+    if (tabId === 'courses') loadCourses();
+}
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/admin/stats', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('total-users').textContent = data.total_users;
+            document.getElementById('total-courses').textContent = data.total_courses;
+            document.getElementById('total-enrollments').textContent = data.total_enrollments;
+        }
+    } catch (error) {
+        console.error('Failed to load stats');
+    }
+}
+
+async function loadUsers() {
+    const tbody = document.getElementById('users-tbody');
+    
+    try {
+        const response = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            tbody.innerHTML = data.users.map(user => `
+                <tr>
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td><span class="badge badge-${user.role}">${user.role}</span></td>
+                    <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                    <td><span class="badge badge-${user.is_active ? 'active' : 'inactive'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="5" class="error">Failed to load users</td></tr>';
+    }
+}
+
+async function loadCourses() {
+    const container = document.getElementById('courses-list');
+    
+    try {
+        const response = await fetch('/api/courses', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.courses.length === 0) {
+                container.innerHTML = '<p>No courses available. Create your first course!</p>';
+                return;
+            }
+            
+            container.innerHTML = data.courses.map(course => `
+                <div class="course-admin-card">
+                    <div class="course-admin-info">
+                        <h4>${course.title}</h4>
+                        <p>${course.module_count} modules • ${course.enrollment_count} enrollments</p>
+                        <span class="badge badge-${course.is_published ? 'published' : 'draft'}">
+                            ${course.is_published ? 'Published' : 'Draft'}
+                        </span>
+                    </div>
+                    <div class="course-admin-actions">
+                        <button class="btn btn-sm btn-outline">Edit</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load courses</p>';
+    }
+}
+
+function showCreateCourseForm() {
+    document.getElementById('create-course-form').style.display = 'block';
+}
+
+function hideCreateCourseForm() {
+    document.getElementById('create-course-form').style.display = 'none';
+}
+
+async function createCourse(event) {
+    event.preventDefault();
+    
+    const title = document.getElementById('course-title').value;
+    const description = document.getElementById('course-description').value;
+    
+    try {
+        const response = await fetch('/api/courses', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title, description, is_published: false })
+        });
+        
+        if (response.ok) {
+            showToast('Course created!', 'success');
+            hideCreateCourseForm();
+            loadCourses();
+        } else {
+            showToast('Failed to create course', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+}
+
+async function encryptSampleVideos() {
+    try {
+        const response = await fetch('/api/drm/encrypt-sample-videos', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            showToast('Sample videos encrypted!', 'success');
+        } else {
+            showToast('Failed to encrypt videos', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const user = getCurrentUser();
+    if (!user || user.role !== 'admin') {
+        window.location.href = '/dashboard';
+        return;
+    }
+    loadStats();
+});
+</script>
+{% endblock %}

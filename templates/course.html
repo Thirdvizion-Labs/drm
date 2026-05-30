@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Course - MindWell LMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div id="course-detail">
+        <div class="loading">Loading course...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const courseId = {{ course_id }};
+
+async function loadCourse() {
+    const container = document.getElementById('course-detail');
+    
+    if (!authToken) {
+        window.location.href = '/login';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/courses/${courseId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const course = data.course;
+            
+            container.innerHTML = `
+                <div class="course-header">
+                    <div class="course-thumbnail-large">
+                        <img src="${course.thumbnail_url || '/static/images/placeholder.jpg'}" alt="${course.title}">
+                    </div>
+                    <div class="course-header-info">
+                        <h1>${course.title}</h1>
+                        <p class="course-instructor">by ${course.instructor || 'Expert Instructor'}</p>
+                        <p class="course-description">${course.description}</p>
+                        
+                        ${course.is_enrolled ? `
+                            <div class="course-progress-info">
+                                <div class="progress-bar-lg">
+                                    <div class="progress-fill" style="width: ${course.progress}%"></div>
+                                </div>
+                                <span>${Math.round(course.progress)}% Complete</span>
+                            </div>
+                            <button class="btn btn-primary" onclick="continueLearning()">Continue Learning</button>
+                        ` : `
+                            <button class="btn btn-primary btn-lg" onclick="enrollCourse()">Enroll Now</button>
+                        `}
+                    </div>
+                </div>
+                
+                <div class="course-curriculum">
+                    <h2>Course Content</h2>
+                    <p class="curriculum-meta">${course.modules?.length || 0} modules • ${countLessons(course.modules)} lessons</p>
+                    
+                    <div class="modules-list">
+                        ${(course.modules || []).map((module, idx) => `
+                            <div class="module-card">
+                                <div class="module-header" onclick="toggleModule(${idx})">
+                                    <h3>Module ${idx + 1}: ${module.title}</h3>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="module-content" id="module-${idx}">
+                                    <p class="module-description">${module.description || ''}</p>
+                                    <div class="lessons-list">
+                                        ${(module.lessons || []).map((lesson, lIdx) => `
+                                            <div class="lesson-item ${!course.is_enrolled ? 'lesson-locked' : ''}" 
+                                                 ${course.is_enrolled ? `onclick="window.location.href='/lesson/${lesson.id}'"` : ''}>
+                                                <div class="lesson-info">
+                                                    <span class="lesson-number">${lIdx + 1}</span>
+                                                    <div>
+                                                        <h4>${lesson.title}</h4>
+                                                        <span class="lesson-duration">⏱️ ${lesson.duration_minutes} min</span>
+                                                    </div>
+                                                </div>
+                                                ${!course.is_enrolled ? '<span class="lock-icon">🔒</span>' : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            
+            for (let i = 1; i < (course.modules?.length || 0); i++) {
+                document.getElementById(`module-${i}`).style.display = 'none';
+            }
+        } else {
+            container.innerHTML = '<p class="error">Failed to load course</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">An error occurred</p>';
+    }
+}
+
+function countLessons(modules) {
+    if (!modules) return 0;
+    return modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0);
+}
+
+function toggleModule(idx) {
+    const content = document.getElementById(`module-${idx}`);
+    const header = content.previousElementSibling;
+    const icon = header.querySelector('.toggle-icon');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▼';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▶';
+    }
+}
+
+async function enrollCourse() {
+    try {
+        const response = await fetch(`/api/courses/${courseId}/enroll`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            showToast('Enrolled successfully!', 'success');
+            loadCourse();
+        } else {
+            const data = await response.json();
+            showToast(data.error || 'Failed to enroll', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+}
+
+function continueLearning() {
+    window.location.href = `/course/${courseId}`;
+}
+
+document.addEventListener('DOMContentLoaded', loadCourse);
+</script>
+{% endblock %}

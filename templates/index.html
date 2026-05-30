@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}MindWell LMS - Mental Health Learning Platform{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="container">
+        <div class="hero-content">
+            <h1>Your Journey to Mental Wellness Starts Here</h1>
+            <p>Access secure, expert-crafted courses on stress management, mindfulness, anxiety coping, and more. Learn at your own pace with protected content designed for your well-being.</p>
+            <div class="hero-actions">
+                <a href="/register" class="btn btn-primary btn-lg">Start Learning Free</a>
+                <a href="/login" class="btn btn-outline btn-lg">Sign In</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="container">
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Secure Content</h3>
+                <p>Server-side DRM protection ensures your learning content is encrypted and secure.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <h3>Expert Courses</h3>
+                <p>Learn from qualified mental health professionals with proven techniques.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⏱️</div>
+                <h3>Self-Paced</h3>
+                <p>Study at your own pace with progress tracking and flexible scheduling.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="courses-preview">
+    <div class="container">
+        <h2 class="section-title">Popular Mental Health Courses</h2>
+        <div class="courses-grid" id="courses-preview">
+            <div class="loading">Loading courses...</div>
+        </div>
+        <div class="section-actions">
+            <a href="/register" class="btn btn-primary">Access All Courses</a>
+        </div>
+    </div>
+</section>
+
+<section class="cta">
+    <div class="container">
+        <div class="cta-content">
+            <h2>Ready to Transform Your Mental Well-being?</h2>
+            <p>Join thousands of learners who have improved their mental health through our secure, evidence-based courses.</p>
+            <a href="/register" class="btn btn-primary btn-lg">Create Free Account</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadCoursesPreview() {
+    const container = document.getElementById('courses-preview');
+    
+    if (!authToken) {
+        container.innerHTML = '<p class="text-center">Please <a href="/login">login</a> to view courses.</p>';
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/courses', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const courses = data.courses.slice(0, 3);
+            
+            if (courses.length === 0) {
+                container.innerHTML = '<p class="text-center">No courses available yet.</p>';
+                return;
+            }
+            
+            container.innerHTML = courses.map(course => `
+                <div class="course-card">
+                    <div class="course-thumbnail">
+                        <img src="${course.thumbnail_url || '/static/images/placeholder.jpg'}" alt="${course.title}">
+                    </div>
+                    <div class="course-info">
+                        <h3>${course.title}</h3>
+                        <p class="course-description">${course.description.substring(0, 100)}...</p>
+                        <div class="course-meta">
+                            <span>📚 ${course.module_count} modules</span>
+                            <span>👨‍🏫 ${course.instructor || 'Expert Instructor'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="text-center">Unable to load courses. Please try again later.</p>';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadCoursesPreview);
+</script>
+{% endblock %}

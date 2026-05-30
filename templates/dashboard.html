@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MindWell LMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard-header">
+        <h1>Welcome, <span id="user-name">Learner</span></h1>
+        <p>Continue your mental wellness journey</p>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="dashboard-main">
+            <section class="dashboard-section">
+                <h2>📚 My Courses</h2>
+                <div id="enrolled-courses" class="courses-list">
+                    <div class="loading">Loading your courses...</div>
+                </div>
+            </section>
+
+            <section class="dashboard-section">
+                <h2>🔍 Browse All Courses</h2>
+                <div id="all-courses" class="courses-grid-sm">
+                    <div class="loading">Loading courses...</div>
+                </div>
+            </section>
+        </div>
+
+        <div class="dashboard-sidebar">
+            <div class="stats-card">
+                <h3>Your Progress</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-enrolled">0</span>
+                        <span class="stat-label">Enrolled</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-completed">0</span>
+                        <span class="stat-label">Completed</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <h3>Quick Tips</h3>
+                <div class="tip-card">
+                    <p>"Take a few deep breaths whenever you feel overwhelmed. Your nervous system will thank you."</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDashboard() {
+    const user = getCurrentUser();
+    if (!user) {
+        window.location.href = '/login';
+        return;
+    }
+    
+    document.getElementById('user-name').textContent = user.name;
+    
+    await Promise.all([
+        loadEnrolledCourses(),
+        loadAllCourses(),
+        loadStats()
+    ]);
+}
+
+async function loadEnrolledCourses() {
+    const container = document.getElementById('enrolled-courses');
+    
+    try {
+        const response = await fetch('/api/enrollments', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.enrollments.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>You haven't enrolled in any courses yet.</p>
+                        <p>Browse our catalog below to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = data.enrollments.map(e => `
+                <div class="course-list-item" onclick="window.location.href='/course/${e.course_id}'">
+                    <div class="course-list-info">
+                        <h3>${e.course.title}</h3>
+                        <p>${e.course.description?.substring(0, 80) || ''}...</p>
+                    </div>
+                    <div class="course-list-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${e.progress_percentage}%"></div>
+                        </div>
+                        <span class="progress-text">${Math.round(e.progress_percentage)}%</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load courses</p>';
+    }
+}
+
+async function loadAllCourses() {
+    const container = document.getElementById('all-courses');
+    
+    try {
+        const response = await fetch('/api/courses', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            container.innerHTML = data.courses.map(course => `
+                <div class="course-card-sm">
+                    <h4>${course.title}</h4>
+                    <p>${course.module_count} modules</p>
+                    <button class="btn btn-sm btn-outline" onclick="enrollCourse(${course.id})">Enroll</button>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="error">Failed to load courses</p>';
+    }
+}
+
+async function enrollCourse(courseId) {
+    try {
+        const response = await fetch(`/api/courses/${courseId}/enroll`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            showToast('Enrolled successfully!', 'success');
+            loadDashboard();
+        } else {
+            const data = await response.json();
+            showToast(data.error || 'Failed to enroll', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred', 'error');
+    }
+}
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/enrollments', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const enrollments = data.enrollments;
+            const completed = enrollments.filter(e => e.progress_percentage >= 100).length;
+            
+            document.getElementById('stat-enrolled').textContent = enrollments.length;
+            document.getElementById('stat-completed').textContent = completed;
+        }
+    } catch (error) {
+        console.error('Failed to load stats');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %}

@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+instance/*.db
+videos/
+.git
+README.md
+SPEC.md
+*.log
