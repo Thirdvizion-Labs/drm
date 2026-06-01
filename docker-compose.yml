@@ -11,11 +11,6 @@ services:
       - DOMAIN_URL=https://drm.thirdvizion.com
       - FLASK_ENV=production
     volumes:
-      - mindwell_instance:/app/instance
-      - mindwell_videos:/app/videos
-      - mindwell_hls:/app/static/hls
-
-volumes:
-  mindwell_instance:
-  mindwell_videos:
-  mindwell_hls:
+      - ./instance:/app/instance
+      - ./videos:/app/videos
+      - ./static/hls:/app/static/hls
