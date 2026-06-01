@@ -1,251 +1,165 @@
 {% extends "base.html" %}
-
-{% block title %}Lesson - MindWell LMS{% endblock %}
-
+{% block title %}Lesson - MindWell{% endblock %}
 {% block content %}
 <div class="lesson-container">
-    <div id="lesson-detail">
-        <div class="loading">Loading lesson...</div>
-    </div>
+    <div id="lesson-detail"><div class="loading">Loading lesson...</div></div>
 </div>
 {% endblock %}
-
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script src="/static/js/video-player.js"></script>
 <script>
 const lessonId = {{ lesson_id }};
-let videoStreamUrl = null;
+let drmPlayer = null;
 
 async function loadLesson() {
     const container = document.getElementById('lesson-detail');
-    
-    if (!authToken) {
-        window.location.href = '/login';
-        return;
-    }
-    
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+
     try {
-        const courseResponse = await fetch(`/api/courses/${getCourseIdFromLesson() || 1}`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        const lessonData = await fetchLessonData(lessonId);
-        
-        if (!lessonData) {
-            container.innerHTML = '<p class="error">Lesson not found or access denied</p>';
+        const playRes = await apiRequest(`/api/video/${lessonId}/play`);
+        if (!playRes.ok) {
+            const lessonRes = await apiRequest(`/api/lessons/${lessonId}`);
+            if (!lessonRes.ok) { container.innerHTML = '<p class="error">Lesson not found</p>'; return; }
+            const lesson = await lessonRes.json();
+            renderTextLesson(container, lesson);
             return;
         }
-        
-        container.innerHTML = `
-            <div class="lesson-header">
-                <a href="/dashboard" class="back-link">← Back to Dashboard</a>
-                <h1>${lessonData.title}</h1>
-            </div>
-            
-            <div class="lesson-content-grid">
-                <div class="lesson-main">
-                    <div id="video-container" class="video-wrapper">
-                        <div class="video-placeholder">
-                            <p>🔒 DRM Protected Content</p>
-                            <p class="video-info">This video is protected with server-side encryption.</p>
-                            ${lessonData.video_path ? `
-                                <button class="btn btn-primary" onclick="initializeVideoPlayer()">
-                                    Play Protected Video
-                                </button>
-                            ` : `
-                                <p class="video-note">Video content not available. Read the lesson content below.</p>
-                            `}
-                        </div>
-                    </div>
-                    
-                    <div class="lesson-text">
-                        <h2>Lesson Content</h2>
-                        <div class="content-text">
-                            ${lessonData.content_text || '<p>No content available for this lesson.</p>'}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="lesson-sidebar">
-                    <div class="lesson-progress-card">
-                        <h3>Your Progress</h3>
-                        <div id="lesson-progress">
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 0%"></div>
-                            </div>
-                            <span id="progress-text">0% completed</span>
-                        </div>
-                        <button class="btn btn-sm btn-outline" onclick="markComplete()">
-                            Mark as Complete
-                        </button>
-                    </div>
-                    
-                    <div class="lesson-nav">
-                        <h3>Next Steps</h3>
-                        <button class="btn btn-primary btn-block" onclick="nextLesson()">
-                            Continue to Next Lesson →
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        loadLessonProgress();
-    } catch (error) {
+        const playData = await playRes.json();
+        renderVideoLesson(container, playData, token);
+    } catch (e) {
         container.innerHTML = '<p class="error">Failed to load lesson</p>';
     }
 }
 
-async function fetchLessonData(id) {
-    try {
-        const response = await fetch(`/api/courses/1`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            for (const module of (data.course.modules || [])) {
-                for (const lesson of (module.lessons || [])) {
-                    if (lesson.id === id) {
-                        return {
-                            ...lesson,
-                            module_title: module.title,
-                            course_id: data.course.id
-                        };
-                    }
-                }
-            }
-        }
-        return null;
-    } catch (error) {
-        return null;
-    }
-}
-
-function getCourseIdFromLesson() {
-    return 1;
-}
-
-async function initializeVideoPlayer() {
-    const container = document.getElementById('video-container');
-    container.innerHTML = '<div class="loading">Initializing secure video stream...</div>';
-    
-    try {
-        const streamResponse = await fetch(`/api/video/${lessonId}/stream`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (streamResponse.ok) {
-            const streamData = await streamResponse.json();
-            videoStreamUrl = streamData.stream_url;
-            
-            container.innerHTML = `
-                <div class="drm-video-player">
-                    <video id="protected-video" controls>
-                        Your browser does not support video playback.
-                    </video>
-                    <div class="drm-overlay">
-                        <span>🔒 DRM Protected Stream</span>
-                        <small>Content is encrypted and streamed securely</small>
+function renderTextLesson(container, lesson) {
+    container.innerHTML = `
+        <div class="lesson-header">
+            <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+            <h1>${lesson.title}</h1>
+        </div>
+        <div class="lesson-content-grid">
+            <div class="lesson-main">
+                <div class="video-wrapper">
+                    <div class="video-placeholder">
+                        <p>📝 Text-Based Lesson</p>
+                        <p class="video-info">No video content for this lesson. Read the content below.</p>
                     </div>
                 </div>
-            `;
-            
-            const video = document.getElementById('protected-video');
-            
-            const keyResponse = await fetch(`/api/video/${lessonId}/key`, {
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-            
-            if (keyResponse.ok) {
-                const keyData = await keyResponse.json();
-                setupVideoStream(video, `${videoStreamUrl}?token=${streamData.token}`, keyData.key);
-            }
-        } else {
-            container.innerHTML = '<p class="error">Failed to get video access</p>';
-        }
-    } catch (error) {
-        container.innerHTML = '<p class="error">Video initialization failed</p>';
-    }
+                <div class="lesson-text">
+                    <h2>Lesson Content</h2>
+                    <div class="content-text">${lesson.content_text || '<p>No content available.</p>'}</div>
+                </div>
+            </div>
+            <div class="lesson-sidebar">
+                <div class="lesson-progress-card">
+                    <h3>Progress</h3>
+                    <button class="btn btn-sm btn-outline btn-block" onclick="markComplete()">Mark as Complete</button>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
-function setupVideoStream(video, url, key) {
-    video.src = url;
-    
+function renderVideoLesson(container, data, token) {
+    container.innerHTML = `
+        <div class="lesson-header">
+            <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+            <h1>${data.title}</h1>
+        </div>
+        <div class="lesson-content-grid">
+            <div class="lesson-main">
+                <div class="video-wrapper">
+                    <video id="protected-video" controls style="width:100%;height:auto;max-height:500px;"></video>
+                </div>
+                <div class="lesson-text">
+                    <h2>About This Lesson</h2>
+                    <div class="content-text">
+                        <p>Duration: ${data.duration_minutes} minutes</p>
+                        <p>🔒 This content is DRM protected with AES-128 encryption.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="lesson-sidebar">
+                <div class="lesson-progress-card">
+                    <h3>Progress</h3>
+                    <div id="lesson-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%"></div>
+                        </div>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline btn-block" onclick="markComplete()">Mark as Complete</button>
+                </div>
+                <div class="lesson-nav">
+                    <h3>Actions</h3>
+                    <button class="btn btn-primary btn-block" onclick="window.location.href='/dashboard'">
+                        Back to Dashboard →
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const video = document.getElementById('protected-video');
+    const manifestUrl = data.manifest_url;
+
+    if (Hls.isSupported()) {
+        const hls = new Hls({
+            xhrSetup: (xhr) => {
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            }
+        });
+        hls.loadSource(manifestUrl);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = manifestUrl;
+    }
+
     video.addEventListener('timeupdate', () => {
-        const progress = Math.floor(video.currentTime);
-        if (progress % 10 === 0) {
-            saveProgress(progress);
-        }
+        const pct = Math.floor((video.currentTime / video.duration) * 100);
+        const fill = document.querySelector('#lesson-progress .progress-fill');
+        const text = document.getElementById('progress-text');
+        if (fill && !isNaN(pct)) fill.style.width = pct + '%';
+        if (text) text.textContent = pct + '%';
     });
-    
-    video.addEventListener('ended', () => {
-        markComplete();
-    });
+
+    video.addEventListener('ended', () => markComplete());
+    loadProgress();
 }
 
-async function loadLessonProgress() {
+async function loadProgress() {
     try {
-        const response = await fetch(`/api/progress/course/1`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            for (const module of data.progress) {
-                const lesson = module.lessons.find(l => l.lesson_id === lessonId);
-                if (lesson) {
-                    const fill = document.querySelector('.progress-fill');
-                    const text = document.getElementById('progress-text');
-                    if (fill) fill.style.width = lesson.is_completed ? '100%' : '50%';
-                    if (text) text.textContent = lesson.is_completed ? 'Completed!' : 'In Progress';
-                    break;
-                }
+        const res = await apiRequest(`/api/progress/${lessonId}`);
+        if (res.ok) {
+            const p = await res.json();
+            if (p.is_completed) {
+                const fill = document.querySelector('#lesson-progress .progress-fill');
+                const text = document.getElementById('progress-text');
+                if (fill) fill.style.width = '100%';
+                if (text) text.textContent = 'Completed!';
             }
         }
-    } catch (error) {
-        console.error('Failed to load progress');
-    }
-}
-
-async function saveProgress(watchedSeconds) {
-    try {
-        await fetch(`/api/progress/${lessonId}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ watched_seconds: watchedSeconds })
-        });
-    } catch (error) {
-        console.error('Failed to save progress');
-    }
+    } catch (e) {}
 }
 
 async function markComplete() {
+    const token = localStorage.getItem('access_token');
     try {
-        const response = await fetch(`/api/progress/${lessonId}`, {
+        const res = await fetch(`/api/progress/${lessonId}`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_completed: true })
         });
-        
-        if (response.ok) {
+        if (res.ok) {
             showToast('Lesson completed!', 'success');
-            loadLessonProgress();
+            loadProgress();
         }
-    } catch (error) {
-        showToast('Failed to mark complete', 'error');
+    } catch (e) {
+        showToast('Failed to save', 'error');
     }
-}
-
-function nextLesson() {
-    showToast('Navigate to next lesson...', 'info');
 }
 
 document.addEventListener('DOMContentLoaded', loadLesson);

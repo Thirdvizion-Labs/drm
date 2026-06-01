@@ -1,13 +1,11 @@
 {% extends "base.html" %}
-
-{% block title %}MindWell LMS - Mental Health Learning Platform{% endblock %}
-
+{% block title %}MindWell - Mental Health Learning Platform{% endblock %}
 {% block content %}
 <section class="hero">
     <div class="container">
         <div class="hero-content">
             <h1>Your Journey to Mental Wellness Starts Here</h1>
-            <p>Access secure, expert-crafted courses on stress management, mindfulness, anxiety coping, and more. Learn at your own pace with protected content designed for your well-being.</p>
+            <p>Access secure, expert-crafted courses on stress management, mindfulness, anxiety coping, and more.</p>
             <div class="hero-actions">
                 <a href="/register" class="btn btn-primary btn-lg">Start Learning Free</a>
                 <a href="/login" class="btn btn-outline btn-lg">Sign In</a>
@@ -40,72 +38,43 @@
 
 <section class="courses-preview">
     <div class="container">
-        <h2 class="section-title">Popular Mental Health Courses</h2>
-        <div class="courses-grid" id="courses-preview">
+        <h2 class="section-title">Mental Health Courses</h2>
+        <div class="courses-grid" id="courses-list">
             <div class="loading">Loading courses...</div>
-        </div>
-        <div class="section-actions">
-            <a href="/register" class="btn btn-primary">Access All Courses</a>
-        </div>
-    </div>
-</section>
-
-<section class="cta">
-    <div class="container">
-        <div class="cta-content">
-            <h2>Ready to Transform Your Mental Well-being?</h2>
-            <p>Join thousands of learners who have improved their mental health through our secure, evidence-based courses.</p>
-            <a href="/register" class="btn btn-primary btn-lg">Create Free Account</a>
         </div>
     </div>
 </section>
 {% endblock %}
-
 {% block scripts %}
 <script>
-async function loadCoursesPreview() {
-    const container = document.getElementById('courses-preview');
-    
-    if (!authToken) {
-        container.innerHTML = '<p class="text-center">Please <a href="/login">login</a> to view courses.</p>';
-        return;
-    }
-
+async function loadCourses() {
     try {
-        const response = await fetch('/api/courses', {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const courses = data.courses.slice(0, 3);
-            
-            if (courses.length === 0) {
-                container.innerHTML = '<p class="text-center">No courses available yet.</p>';
-                return;
-            }
-            
-            container.innerHTML = courses.map(course => `
-                <div class="course-card">
-                    <div class="course-thumbnail">
-                        <img src="${course.thumbnail_url || '/static/images/placeholder.jpg'}" alt="${course.title}">
-                    </div>
-                    <div class="course-info">
-                        <h3>${course.title}</h3>
-                        <p class="course-description">${course.description.substring(0, 100)}...</p>
-                        <div class="course-meta">
-                            <span>📚 ${course.module_count} modules</span>
-                            <span>👨‍🏫 ${course.instructor || 'Expert Instructor'}</span>
-                        </div>
+        const res = await fetch('/api/courses');
+        const courses = await res.json();
+        const container = document.getElementById('courses-list');
+        if (courses.length === 0) {
+            container.innerHTML = '<p class="text-center">No courses available yet.</p>';
+            return;
+        }
+        container.innerHTML = courses.map(c => `
+            <div class="course-card" onclick="window.location.href='/course/${c.id}'">
+                <div class="course-thumbnail">
+                    <img src="${c.thumbnail_url || 'https://picsum.photos/400/225?random=' + c.id}" alt="${c.title}">
+                </div>
+                <div class="course-info">
+                    <h3>${c.title}</h3>
+                    <p class="course-description">${(c.description || '').substring(0, 120)}...</p>
+                    <div class="course-meta">
+                        <span>📚 ${c.module_count} modules</span>
+                        <span>👨‍🏫 ${c.instructor || 'Instructor'}</span>
                     </div>
                 </div>
-            `).join('');
-        }
-    } catch (error) {
-        container.innerHTML = '<p class="text-center">Unable to load courses. Please try again later.</p>';
+            </div>
+        `).join('');
+    } catch (e) {
+        document.getElementById('courses-list').innerHTML = '<p class="error">Failed to load courses</p>';
     }
 }
-
-document.addEventListener('DOMContentLoaded', loadCoursesPreview);
+document.addEventListener('DOMContentLoaded', loadCourses);
 </script>
 {% endblock %}

@@ -1,0 +1,2 @@
+http://localhost:7200/api/video/1/key
+static/hls/1/video.key

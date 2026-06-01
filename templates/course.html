@@ -1,146 +1,123 @@
 {% extends "base.html" %}
-
-{% block title %}Course - MindWell LMS{% endblock %}
-
+{% block title %}Course - MindWell{% endblock %}
 {% block content %}
 <div class="container">
-    <div id="course-detail">
-        <div class="loading">Loading course...</div>
-    </div>
+    <div id="course-detail"><div class="loading">Loading course...</div></div>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
 const courseId = {{ course_id }};
 
 async function loadCourse() {
     const container = document.getElementById('course-detail');
-    
-    if (!authToken) {
-        window.location.href = '/login';
-        return;
-    }
-    
+    const token = localStorage.getItem('access_token');
+    if (!token) { window.location.href = '/login'; return; }
+
     try {
-        const response = await fetch(`/api/courses/${courseId}`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
+        const res = await fetch(`/api/courses/${courseId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const course = data.course;
-            
-            container.innerHTML = `
-                <div class="course-header">
-                    <div class="course-thumbnail-large">
-                        <img src="${course.thumbnail_url || '/static/images/placeholder.jpg'}" alt="${course.title}">
-                    </div>
-                    <div class="course-header-info">
-                        <h1>${course.title}</h1>
-                        <p class="course-instructor">by ${course.instructor || 'Expert Instructor'}</p>
-                        <p class="course-description">${course.description}</p>
-                        
-                        ${course.is_enrolled ? `
-                            <div class="course-progress-info">
-                                <div class="progress-bar-lg">
-                                    <div class="progress-fill" style="width: ${course.progress}%"></div>
-                                </div>
-                                <span>${Math.round(course.progress)}% Complete</span>
-                            </div>
-                            <button class="btn btn-primary" onclick="continueLearning()">Continue Learning</button>
-                        ` : `
-                            <button class="btn btn-primary btn-lg" onclick="enrollCourse()">Enroll Now</button>
-                        `}
-                    </div>
+        if (!res.ok) { container.innerHTML = '<p class="error">Course not found</p>'; return; }
+        const c = await res.json();
+
+        container.innerHTML = `
+            <div class="course-header">
+                <div class="course-thumbnail-large">
+                    <img src="${c.thumbnail_url || 'https://picsum.photos/400/225'}" alt="${c.title}">
                 </div>
-                
-                <div class="course-curriculum">
-                    <h2>Course Content</h2>
-                    <p class="curriculum-meta">${course.modules?.length || 0} modules • ${countLessons(course.modules)} lessons</p>
-                    
-                    <div class="modules-list">
-                        ${(course.modules || []).map((module, idx) => `
-                            <div class="module-card">
-                                <div class="module-header" onclick="toggleModule(${idx})">
-                                    <h3>Module ${idx + 1}: ${module.title}</h3>
-                                    <span class="toggle-icon">▼</span>
-                                </div>
-                                <div class="module-content" id="module-${idx}">
-                                    <p class="module-description">${module.description || ''}</p>
-                                    <div class="lessons-list">
-                                        ${(module.lessons || []).map((lesson, lIdx) => `
-                                            <div class="lesson-item ${!course.is_enrolled ? 'lesson-locked' : ''}" 
-                                                 ${course.is_enrolled ? `onclick="window.location.href='/lesson/${lesson.id}'"` : ''}>
-                                                <div class="lesson-info">
-                                                    <span class="lesson-number">${lIdx + 1}</span>
-                                                    <div>
-                                                        <h4>${lesson.title}</h4>
-                                                        <span class="lesson-duration">⏱️ ${lesson.duration_minutes} min</span>
-                                                    </div>
+                <div class="course-header-info">
+                    <h1>${c.title}</h1>
+                    <p class="course-instructor">by ${c.instructor || 'Instructor'}</p>
+                    <p class="course-description">${c.description || ''}</p>
+                    ${c.is_enrolled ? `
+                        <div class="course-progress-info">
+                            <button class="btn btn-primary" onclick="window.location.href='/lesson/${(c.modules||[])[0]?.lessons?.[0]?.id || ''}'">
+                                Continue Learning
+                            </button>
+                        </div>
+                    ` : `
+                        <button class="btn btn-primary btn-lg" onclick="enrollCourse()">Enroll Now</button>
+                    `}
+                </div>
+            </div>
+            <div class="course-curriculum">
+                <h2>Course Content</h2>
+                <p class="curriculum-meta">${(c.modules||[]).length} modules • ${countLessons(c.modules)} lessons</p>
+                <div class="modules-list">
+                    ${(c.modules||[]).map((m, mi) => `
+                        <div class="module-card">
+                            <div class="module-header" onclick="toggleModule(${mi})">
+                                <h3>${m.title}</h3>
+                                <span class="toggle-icon">▼</span>
+                            </div>
+                            <div class="module-content" id="module-${mi}">
+                                <p class="module-description">${m.description || ''}</p>
+                                <div class="lessons-list">
+                                    ${(m.lessons||[]).map((l, li) => `
+                                        <div class="lesson-item ${!c.is_enrolled ? 'lesson-locked' : ''}"
+                                             ${c.is_enrolled ? `onclick="window.location.href='/lesson/${l.id}'"` : ''}>
+                                            <div class="lesson-info">
+                                                <span class="lesson-number">${li+1}</span>
+                                                <div>
+                                                    <h4>${l.title}</h4>
+                                                    <span class="lesson-duration">⏱️ ${l.duration_minutes} min</span>
                                                 </div>
-                                                ${!course.is_enrolled ? '<span class="lock-icon">🔒</span>' : ''}
                                             </div>
-                                        `).join('')}
-                                    </div>
+                                            ${!c.is_enrolled ? '<span class="lock-icon">🔒</span>' : ''}
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </div>
-                        `).join('')}
-                    </div>
+                        </div>
+                    `).join('')}
                 </div>
-            `;
-            
-            for (let i = 1; i < (course.modules?.length || 0); i++) {
-                document.getElementById(`module-${i}`).style.display = 'none';
-            }
-        } else {
-            container.innerHTML = '<p class="error">Failed to load course</p>';
+            </div>
+        `;
+        for (let i = 1; i < (c.modules||[]).length; i++) {
+            const el = document.getElementById(`module-${i}`);
+            if (el) el.style.display = 'none';
         }
-    } catch (error) {
-        container.innerHTML = '<p class="error">An error occurred</p>';
+    } catch (e) {
+        container.innerHTML = '<p class="error">Failed to load course</p>';
     }
 }
 
 function countLessons(modules) {
     if (!modules) return 0;
-    return modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0);
+    return modules.reduce((s, m) => s + (m.lessons||[]).length, 0);
 }
 
 function toggleModule(idx) {
-    const content = document.getElementById(`module-${idx}`);
-    const header = content.previousElementSibling;
-    const icon = header.querySelector('.toggle-icon');
-    
-    if (content.style.display === 'none') {
-        content.style.display = 'block';
-        icon.textContent = '▼';
+    const el = document.getElementById(`module-${idx}`);
+    if (!el) return;
+    const icon = el.previousElementSibling?.querySelector('.toggle-icon');
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        if (icon) icon.textContent = '▼';
     } else {
-        content.style.display = 'none';
-        icon.textContent = '▶';
+        el.style.display = 'none';
+        if (icon) icon.textContent = '▶';
     }
 }
 
 async function enrollCourse() {
+    const token = localStorage.getItem('access_token');
     try {
-        const response = await fetch(`/api/courses/${courseId}/enroll`, {
+        const res = await fetch(`/api/courses/${courseId}/enroll`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${authToken}` }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-        
-        if (response.ok) {
-            showToast('Enrolled successfully!', 'success');
+        if (res.ok) {
+            showToast('Enrolled!', 'success');
             loadCourse();
         } else {
-            const data = await response.json();
-            showToast(data.error || 'Failed to enroll', 'error');
+            const d = await res.json();
+            showToast(d.error || 'Failed', 'error');
         }
-    } catch (error) {
-        showToast('An error occurred', 'error');
+    } catch (e) {
+        showToast('Error', 'error');
     }
-}
-
-function continueLearning() {
-    window.location.href = `/course/${courseId}`;
 }
 
 document.addEventListener('DOMContentLoaded', loadCourse);

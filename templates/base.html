@@ -14,38 +14,42 @@
         <div class="nav-container">
             <a href="/" class="nav-brand">
                 <span class="brand-icon">🧠</span>
-                MindWell LMS
+                MindWell
             </a>
             <div class="nav-links">
-                {% if current_user %}
-                    <a href="/dashboard" class="nav-link">Dashboard</a>
-                    <a href="/admin" class="nav-link">Admin</a>
-                    <div class="nav-user">
-                        <span>{{ current_user.name }}</span>
-                        <button onclick="logout()" class="btn btn-sm btn-outline">Logout</button>
-                    </div>
-                {% else %}
+                <a href="/" class="nav-link">Home</a>
+                <span id="nav-auth">
                     <a href="/login" class="nav-link">Login</a>
                     <a href="/register" class="btn btn-primary">Get Started</a>
-                {% endif %}
+                </span>
             </div>
             <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
         </div>
     </nav>
-
-    <main class="main-content">
-        {% block content %}{% endblock %}
-    </main>
-
+    <main class="main-content">{% block content %}{% endblock %}</main>
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2024 MindWell LMS. Supporting mental health education with secure content delivery.</p>
+            <p>&copy; 2024 MindWell. Supporting mental health education with secure content delivery.</p>
         </div>
     </footer>
-
     <div id="toast-container"></div>
-
     <script src="/static/js/app.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const user = getCurrentUser();
+        const nav = document.getElementById('nav-auth');
+        if (user) {
+            nav.innerHTML = `
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                ${user.role === 'admin' || user.role === 'instructor' ? '<a href="/admin" class="nav-link">Admin</a>' : ''}
+                <div class="nav-user">
+                    <span>${user.name}</span>
+                    <button onclick="logout()" class="btn btn-sm btn-outline">Logout</button>
+                </div>
+            `;
+        }
+    });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
