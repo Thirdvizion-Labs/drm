@@ -15,7 +15,7 @@ export default function Layout() {
     <>
       <nav className="navbar">
         <div className="nav-container">
-          <Link to="/" className="nav-brand">🧠 MindWell</Link>
+          <Link to="/" className="nav-brand">🧠 StriveHigh</Link>
           <div className="nav-links">
             <Link to="/" className="nav-link">Home</Link>
             {user ? (
@@ -41,7 +41,7 @@ export default function Layout() {
       <main className="main-content"><Outlet /></main>
       <footer className="footer">
         <div className="container">
-          <p>&copy; 2024 MindWell. Supporting mental health education with secure content delivery.</p>
+          <p>&copy; 2024 StriveHigh. Supporting mental health education with secure content delivery.</p>
         </div>
       </footer>
       <ToastContainer />

@@ -9,13 +9,13 @@ from flask import Flask
 with app.app_context():
     db.create_all()
 
-    if not User.query.filter_by(email='admin@mindwell.com').first():
-        admin = User(email='admin@mindwell.com', name='Admin User', role='admin')
+    if not User.query.filter_by(email='admin@strivehigh.com').first():
+        admin = User(email='admin@strivehigh.com', name='Admin User', role='admin')
         admin.set_password('admin123')
         db.session.add(admin)
 
-    if not User.query.filter_by(email='sarah.therapist@mindwell.com').first():
-        instructor = User(email='sarah.therapist@mindwell.com', name='Dr. Sarah Johnson', role='instructor')
+    if not User.query.filter_by(email='sarah.therapist@strivehigh.com').first():
+        instructor = User(email='sarah.therapist@strivehigh.com', name='Dr. Sarah Johnson', role='instructor')
         instructor.set_password('instructor123')
         db.session.add(instructor)
 

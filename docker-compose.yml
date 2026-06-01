@@ -1,10 +1,10 @@
 services:
   app:
     build: .
-    container_name: mindwell-app
+    container_name: strivehigh-app
     restart: unless-stopped
-    expose:
-      - "7200"
+    ports:
+      - "7200:7200"
     environment:
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-jwt-in-production}
@@ -15,18 +15,18 @@ services:
       - ./videos:/app/videos
       - ./static/hls:/app/static/hls
     networks:
-      - mindwell
+      - strivehigh
 
   frontend:
     build: ./frontend
-    container_name: mindwell-frontend
+    container_name: strivehigh-frontend
     restart: unless-stopped
     ports:
       - "7201:80"
     depends_on:
       - app
     networks:
-      - mindwell
+      - strivehigh
 
 networks:
-  mindwell:
+  strivehigh:

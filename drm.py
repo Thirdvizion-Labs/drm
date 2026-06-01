@@ -15,7 +15,7 @@ class DRMManager:
         self.fernet = Fernet(self.master_key)
     
     def _derive_key(self, password):
-        salt = b'mindwell_salt_2024'
+        salt = b'strivehigh_salt_2024'
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,

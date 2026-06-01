@@ -4,7 +4,7 @@ from datetime import datetime
 
 def seed_mental_health_courses():
     with app.app_context():
-        instructor = User.query.filter_by(email='sarah.therapist@mindwell.com').first()
+        instructor = User.query.filter_by(email='sarah.therapist@strivehigh.com').first()
         if not instructor:
             print("Instructor not found. Run app.py first to create users.")
             return
