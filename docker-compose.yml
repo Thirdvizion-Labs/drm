@@ -22,7 +22,7 @@ services:
     container_name: mindwell-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "7201:80"
     depends_on:
       - app
     networks:
